@@ -1,8 +1,8 @@
 use std::env;
 use std::process::exit;
 
-const VERSION: &'static str = env!("CARGO_PKG_VERSION");
-const CRATE: &'static str = env!("CARGO_CRATE_NAME");
+const VERSION: &str = env!("CARGO_PKG_VERSION");
+const CRATE: &str = env!("CARGO_CRATE_NAME");
 
 #[derive(Default)]
 struct Options {
@@ -24,8 +24,8 @@ pub fn handle() -> String {
     for arg in &args[1..] {
         match arg.as_str() {
             "-v" | "--version" => options.version = true,
-            flag if flag.chars().next() == Some('-') => panic!("option {} not implemented!", flag),
-            file @ _ => {
+            flag if flag.starts_with('-') => panic!("option {} not implemented!", flag),
+            file => {
                 if !options.file.is_empty() {
                     panic!("please specify only a single source file!");
                 }

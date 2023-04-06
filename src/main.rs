@@ -1,5 +1,6 @@
 use tricc::args;
 
 fn main() {
-    println!("Hello World!");
+    let file: String = args::handle();
+    println!("{}", file);
 }
