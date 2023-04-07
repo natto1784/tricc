@@ -4,47 +4,57 @@ use std::process::exit;
 const VERSION: &str = env!("CARGO_PKG_VERSION");
 const CRATE: &str = env!("CARGO_CRATE_NAME");
 
+// naive argument handling
 #[derive(Default)]
-struct Options {
+pub struct Args {
     version: bool,
-    file: String,
+    file: Option<String>,
 }
 
-// naive argument handling
-pub fn handle() -> String {
-    let args: Vec<String> = env::args().collect();
-
-    if args.len() < 2 {
-        println!("Usage: {} [-v] <file>", CRATE);
-        exit(0);
+impl Args {
+    pub fn new() -> Args {
+        Args {
+            version: false,
+            file: None,
+        }
     }
 
-    let mut options: Options = Default::default();
+    pub fn handle(&mut self) {
+        let args: Vec<String> = env::args().collect();
 
-    for arg in &args[1..] {
-        match arg.as_str() {
-            "-v" | "--version" => options.version = true,
-            flag if flag.starts_with('-') => panic!("option {} not implemented!", flag),
-            file => {
-                if !options.file.is_empty() {
-                    panic!("please specify only a single source file!");
+        if args.len() < 2 {
+            println!("Usage: {} [-v] <file>", CRATE);
+            exit(0);
+        }
+
+        for arg in &args[1..] {
+            match arg.as_str() {
+                "-v" | "--version" => self.version = true,
+                flag if flag.starts_with('-') => panic!("option {} not implemented!", flag),
+                file => {
+                    if self.file.is_some() {
+                        panic!("please specify only a single source file!");
+                    }
+                    self.file = Some(file.to_owned());
                 }
-                options.file = file.to_string();
+            }
+        }
+
+        if self.version {
+            println!("{} version: {}", CRATE, VERSION);
+        }
+
+        if self.file.is_none() {
+            if self.version {
+                exit(0);
+            } else {
+                panic!("no file supplied!");
             }
         }
     }
 
-    if options.version {
-        println!("{} version: {}", CRATE, VERSION);
+    #[inline]
+    pub fn get_file(self) -> String {
+        self.file.expect("no file supplied!")
     }
-
-    if options.file.is_empty() {
-        if options.version {
-            exit(0);
-        } else {
-            panic!("no file supplied!");
-        }
-    }
-
-    options.file
 }

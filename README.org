@@ -2,6 +2,6 @@ tricc (pronounced "trick-c" or "trixie" like pixie) is a WIP toy compiler I am
 writing to understand compilers better, that's it. Will probably use LLVM as
 the backend.
 
-Notes:
-- Does not work
-- Is WIP
+** Notes:
++ Does not work
++ Is WIP
