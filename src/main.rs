@@ -2,6 +2,7 @@ use std::fs;
 use std::panic;
 
 use tricc::args::Args;
+use tricc::lexer::Lexer;
 
 fn main() {
     panic::set_hook(Box::new(|panic_info| {
@@ -25,4 +26,9 @@ fn main() {
 
     let file = args.get_file();
     let contents = fs::read_to_string(&file).expect("Couldn't read the file");
+
+    let mut lexer = Lexer::new(&file, contents.as_str());
+    let tokens = lexer.lex();
+
+    println!("{:?}", tokens);
 }
