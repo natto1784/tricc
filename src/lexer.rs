@@ -1,14 +1,14 @@
 use std::{iter, str};
 
 #[derive(Debug)]
-pub enum Literal {
+pub enum TokenLiteral {
     Int,
     Float,
     Char,
 }
 
 #[derive(Debug)]
-pub enum Symbol {
+pub enum TokenSymbol {
     // operators
     Plus,
     Minus,
@@ -59,14 +59,15 @@ pub enum Symbol {
 }
 
 #[derive(Debug)]
-pub enum Keyword {
+pub enum TokenKeyword {
     Let,
     Fn,
+    Ret,
 
     // conditionals
     If,
     Else,
-    Elseif,
+    Elif,
 
     // loops
     While,
@@ -80,7 +81,7 @@ pub enum Keyword {
 }
 
 #[derive(Debug)]
-pub enum Delimiter {
+pub enum TokenDelimiter {
     BraceOpen,
     BraceClose,
     ParenOpen,
@@ -88,20 +89,13 @@ pub enum Delimiter {
 }
 
 #[derive(Debug)]
-pub enum TokenKind {
-    Literal(Literal),
-    Symbol(Symbol),
-    Keyword(Keyword),
-    Delimiter(Delimiter),
+pub enum Token<'a> {
     Newline,
-    Identifier,
-}
-
-#[derive(Debug)]
-pub struct Token<'a> {
-    pub kind: TokenKind,
-    pub value: Option<&'a str>,
-    pub line: usize,
+    Literal(TokenLiteral, &'a str),
+    Symbol(TokenSymbol),
+    Keyword(TokenKeyword),
+    Delimiter(TokenDelimiter),
+    Identifier(&'a str),
 }
 
 pub struct Lexer<'a> {
@@ -142,6 +136,24 @@ impl<'a> Lexer<'a> {
         }
     }
 
+    fn escape_newline(&mut self) {
+        while let Some(c) = self.chars.peek() {
+            match c {
+                '\r' | '\t' | ' ' => {
+                    self.next();
+                }
+                '\n' => {
+                    self.next();
+                    break;
+                }
+                _ => {
+                    self.error();
+                    panic!("expected newline");
+                },
+            }
+        }
+    }
+
     fn get_numeric(&mut self) -> Token<'a> {
         let mut is_float: bool = false;
         while let Some(c) = self.chars.peek() {
@@ -159,15 +171,14 @@ impl<'a> Lexer<'a> {
             self.next();
         }
 
-        Token {
-            kind: if is_float {
-                TokenKind::Literal(Literal::Float)
+        Token::Literal(
+            if is_float {
+                TokenLiteral::Float
             } else {
-                TokenKind::Literal(Literal::Int)
+                TokenLiteral::Int
             },
-            value: Some(&self.text[self.start..self.end]),
-            line: self.line,
-        }
+            &self.text[self.start..self.end],
+        )
     }
 
     fn get_char(&mut self) -> Token<'a> {
@@ -180,32 +191,19 @@ impl<'a> Lexer<'a> {
 
         self.skip('\'');
 
-        Token {
-            kind: TokenKind::Literal(Literal::Char),
-            value: Some(&self.text[self.start + 1..self.end - 1]),
-            line: self.line,
-        }
+        Token::Literal(TokenLiteral::Char, &self.text[self.start + 1..self.end - 1])
     }
 
     fn get_delimiter(&mut self) -> Token<'a> {
-        macro_rules! token_delimiter {
-            ($a:expr) => {
-                Token {
-                    kind: TokenKind::Delimiter($a),
-                    value: None,
-                    line: self.line,
-                }
-            };
-        }
-
-        use Delimiter::*;
+        use Token::Delimiter;
+        use TokenDelimiter::*;
 
         match self.next() {
             Some(c) => match c {
-                '{' => token_delimiter!(BraceOpen),
-                '}' => token_delimiter!(BraceClose),
-                '(' => token_delimiter!(ParenOpen),
-                ')' => token_delimiter!(ParenClose),
+                '{' => Delimiter(BraceOpen),
+                '}' => Delimiter(BraceClose),
+                '(' => Delimiter(ParenOpen),
+                ')' => Delimiter(ParenClose),
                 _ => {
                     self.error();
                     panic!("expected delimiter");
@@ -219,25 +217,16 @@ impl<'a> Lexer<'a> {
     }
 
     fn get_symbol(&mut self) -> Token<'a> {
-        // handle ~, ., :
-        macro_rules! token_symbol {
-            ($a:expr) => {
-                Token {
-                    kind: TokenKind::Symbol($a),
-                    value: None,
-                    line: self.line,
-                }
-            };
-        }
+        use Token::Symbol;
 
         // handle +, +=, -, -=, *, *=, /, /=, %, %=, ^, ^=, !, !=
         macro_rules! token_symbol_eq {
             ($a:expr, $b:expr) => {
                 if self.chars.peek() == Some(&'=') {
                     self.next();
-                    token_symbol!($b)
+                    Symbol($b)
                 } else {
-                    token_symbol!($a)
+                    Symbol($a)
                 }
             };
         }
@@ -248,13 +237,13 @@ impl<'a> Lexer<'a> {
                 match self.chars.peek() {
                     Some('=') => {
                         self.next();
-                        token_symbol!($c)
+                        Symbol($c)
                     }
                     Some($d) => {
                         self.next();
-                        token_symbol!($b)
+                        Symbol($b)
                     }
-                    _ => token_symbol!($a),
+                    _ => Symbol($a),
                 }
             };
         }
@@ -265,18 +254,18 @@ impl<'a> Lexer<'a> {
                 match self.chars.peek() {
                     Some('=') => {
                         self.next();
-                        token_symbol!($d)
+                        Symbol($d)
                     }
                     Some($e) => {
                         self.next();
                         token_symbol_eq!($b, $c)
                     }
-                    _ => token_symbol!($a),
+                    _ => Symbol($a),
                 }
             };
         }
 
-        use Symbol::*;
+        use TokenSymbol::*;
 
         match self.next() {
             Some(c) => match c {
@@ -292,10 +281,10 @@ impl<'a> Lexer<'a> {
                 '|' => token_symbol_logical!(Or, OrOr, OrEq, '|'),
                 '<' => token_symbol_compare!(Lt, Shl, ShlEq, LtEq, '<'),
                 '>' => token_symbol_compare!(Gt, Shr, ShrEq, GtEq, '>'),
-                '~' => token_symbol!(Tilde),
-                ':' => token_symbol!(Colon),
-                '.' => token_symbol!(Dot),
-                '#' => token_symbol!(Hash),
+                '~' => Symbol(Tilde),
+                ':' => Symbol(Colon),
+                '.' => Symbol(Dot),
+                '#' => Symbol(Hash),
                 _ => {
                     self.error();
                     panic!("expected symbol");
@@ -317,35 +306,23 @@ impl<'a> Lexer<'a> {
             self.next();
         }
 
-        macro_rules! token_keyword {
-            ($a:expr) => {
-                Token {
-                    kind: TokenKind::Keyword($a),
-                    value: None,
-                    line: self.line,
-                }
-            };
-        }
-
-        use Keyword::*;
+        use Token::Keyword;
+        use TokenKeyword::*;
 
         match &self.text[self.start..self.end] {
-            "let" => token_keyword!(Let),
-            "fn" => token_keyword!(Fn),
-            "if" => token_keyword!(If),
-            "else" => token_keyword!(Else),
-            "elseif" => token_keyword!(Elseif),
-            "while" => token_keyword!(While),
-            "do" => token_keyword!(Do),
-            "for" => token_keyword!(For),
-            "int" => token_keyword!(Int),
-            "float" => token_keyword!(Float),
-            "char" => token_keyword!(Char),
-            _ => Token {
-                kind: TokenKind::Identifier,
-                value: Some(&self.text[self.start..self.end]),
-                line: self.line,
-            },
+            "let" => Keyword(Let),
+            "fn" => Keyword(Fn),
+            "ret" => Keyword(Ret),
+            "if" => Keyword(If),
+            "else" => Keyword(Else),
+            "elif" => Keyword(Elif),
+            "while" => Keyword(While),
+            "do" => Keyword(Do),
+            "for" => Keyword(For),
+            "int" => Keyword(Int),
+            "float" => Keyword(Float),
+            "char" => Keyword(Char),
+            _ => Token::Identifier(&self.text[self.start..self.end]),
         }
     }
 
@@ -357,12 +334,12 @@ impl<'a> Lexer<'a> {
                 ' ' | '\r' | '\t' => {
                     self.next();
                 }
+                '\\' => {
+                    self.next();
+                    self.escape_newline();
+                }
                 '\n' => {
-                    tokens.push(Token {
-                        kind: TokenKind::Newline,
-                        value: None,
-                        line: self.line,
-                    });
+                    tokens.push(Token::Newline);
                     self.next();
                     self.line += 1;
                 }
