@@ -1,16 +1,7 @@
 /// A very naive AST definition using recursive enums
 /// See the parser for implementation
-use std::rc::Rc;
 
-/// Primitives
-///
-/// TODO: add arrays and pointers maybe
-#[derive(Debug)]
-pub enum Type {
-    Int,
-    Float,
-    Char,
-}
+use std::rc::Rc;
 
 pub type Parent = Vec<Entity>;
 
@@ -54,9 +45,9 @@ pub enum ClassChildren {
 #[derive(Debug)]
 pub struct Fn {
     pub name: Rc<str>,
-    pub return_typ: Option<Type>,
-    pub params: Vec<Rc<str>>,
-    pub block: Vec<Statement>,
+    pub return_typ: Option<Primitive>,
+    pub params: Vec<(Rc<str>, Primitive)>,
+    pub children: Vec<Statement>,
 }
 
 #[derive(Debug)]
@@ -69,7 +60,7 @@ pub enum Statement {
 #[derive(Debug)]
 pub struct Let {
     pub name: Rc<str>,
-    pub typ: Type,
+    pub typ: Primitive,
     pub expr: Option<Expr>,
 }
 
@@ -85,4 +76,14 @@ pub enum Expr {
     Loop,
     Break,
     Continue,
+}
+
+/// Primitives
+///
+/// TODO: add arrays and pointers maybe
+#[derive(Debug)]
+pub enum Primitive {
+    Int,
+    Float,
+    Char,
 }
