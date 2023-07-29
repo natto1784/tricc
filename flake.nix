@@ -38,25 +38,34 @@
 
         tricc = craneLib.buildPackage (commonArgs // {
           inherit cargoArtifacts;
+          doCheck = false;
         });
       in
       {
-        checks = {
-          inherit tricc;
-
-          clippy = craneLib.cargoClippy (commonArgs // {
-            inherit cargoArtifacts;
-            cargoClippyExtraArgs = "--all-targets -- --deny warnings";
-          });
-
-          fmt = craneLib.cargoFmt {
-            inherit src;
-          };
-        };
-
         packages = {
           inherit tricc;
           default = tricc;
+
+          # not using flake checks to run them individually
+          checks = {
+            clippy = craneLib.cargoClippy (commonArgs // {
+              inherit cargoArtifacts;
+            });
+
+            fmt = craneLib.cargoFmt {
+              inherit src;
+            };
+
+            doc = craneLib.cargoDoc (commonArgs // {
+              inherit cargoArtifacts;
+            });
+
+            nextest = craneLib.cargoNextest (commonArgs // {
+              inherit cargoArtifacts;
+              partitions = 1;
+              partitionType = "count";
+            });
+          };
         };
 
         devShells.default = pkgs.mkShell {

@@ -1,8 +1,13 @@
-use std::fs;
-use std::panic;
+use std::{
+    fs,
+    panic,
+};
 
 use tricc::args::Args;
-use tricc::lexer::Lexer;
+use tricc::lexer::{
+    Lexer,
+    TokenKind,
+};
 
 fn main() {
     panic::set_hook(Box::new(|panic_info| {
@@ -21,14 +26,15 @@ fn main() {
         }
     }));
 
-    let mut args = Args::new();
+    let mut args = Args::default();
     args.handle();
 
     let file = args.get_file();
-    let contents = fs::read_to_string(&file).expect("Couldn't read the file");
+    let content = fs::read_to_string(&file).expect("Couldn't read the file");
 
-    let mut lexer = Lexer::new(&file, contents.as_str());
-    let tokens = lexer.lex();
+    let mut lexer = Lexer::new(content.as_str());
 
-    println!("{:?}", tokens);
+    while lexer.peek_token().kind != TokenKind::Eof {
+        println!("{:?}", lexer.next_token());
+    }
 }

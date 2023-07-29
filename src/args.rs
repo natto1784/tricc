@@ -4,7 +4,7 @@ use std::process::exit;
 const VERSION: &str = env!("CARGO_PKG_VERSION");
 const CRATE: &str = env!("CARGO_CRATE_NAME");
 
-// naive argument handling
+/// A naive argument handler
 #[derive(Default)]
 pub struct Args {
     version: bool,
@@ -12,13 +12,12 @@ pub struct Args {
 }
 
 impl Args {
+    /// Creates a new [`Args`] instance
     pub fn new() -> Args {
-        Args {
-            version: false,
-            file: None,
-        }
+        Args::default()
     }
 
+    /// Checks for various arguments
     pub fn handle(&mut self) {
         let args: Vec<String> = env::args().collect();
 
@@ -53,6 +52,8 @@ impl Args {
         }
     }
 
+    /// Fetches the file from the arguments.
+    /// Panics if there is no file in the arguments
     #[inline]
     pub fn get_file(self) -> String {
         self.file.expect("no file supplied!")

@@ -1,13 +1,22 @@
-use std::{iter, str};
+use std::collections::VecDeque;
+use std::iter::Peekable;
+use std::rc::Rc;
+use std::str;
 
-#[derive(Debug)]
+/// All token literals
+///
+/// TODO: Add string
+#[derive(Debug, PartialEq)]
 pub enum TokenLiteral {
     Int,
     Float,
     Char,
 }
 
-#[derive(Debug)]
+/// All token symbols
+///
+/// TODO: Maybe add *
+#[derive(Debug, PartialEq)]
 pub enum TokenSymbol {
     // operators
     Plus,
@@ -58,10 +67,16 @@ pub enum TokenSymbol {
     Hash,
 }
 
-#[derive(Debug)]
+/// All token keywod
+#[derive(Debug, PartialEq)]
 pub enum TokenKeyword {
-    Let,
+    // parents
     Fn,
+    Class,
+    Module,
+
+    // statements
+    Let,
     Ret,
 
     // conditionals
@@ -69,10 +84,10 @@ pub enum TokenKeyword {
     Else,
     Elif,
 
-    // loops
-    While,
-    Do,
-    For,
+    // control flow
+    Loop,
+    Break,
+    Continue,
 
     // primitives
     Int,
@@ -80,7 +95,10 @@ pub enum TokenKeyword {
     Char,
 }
 
-#[derive(Debug)]
+/// All token delimiters
+///
+/// TODO: Maybe add \[ and \]
+#[derive(Debug, PartialEq)]
 pub enum TokenDelimiter {
     BraceOpen,
     BraceClose,
@@ -88,31 +106,70 @@ pub enum TokenDelimiter {
     ParenClose,
 }
 
-#[derive(Debug)]
-pub enum Token<'a> {
+/// All tokens
+#[derive(Debug, PartialEq)]
+pub enum TokenKind {
     Newline,
-    Literal(TokenLiteral, &'a str),
+    Eof,
+    Literal(TokenLiteral),
     Symbol(TokenSymbol),
     Keyword(TokenKeyword),
     Delimiter(TokenDelimiter),
-    Identifier(&'a str),
+    Identifier,
+    Invalid,
+}
+
+#[derive(Debug)]
+pub struct Token {
+    pub kind: TokenKind,
+    /// Holds the reference to the tokenized string
+    ///
+    /// For example, if `kind` is of type [`TokenKind::Identifier`], this would contain the value
+    /// of that identifier
+    pub val: Rc<str>,
 }
 
 pub struct Lexer<'a> {
-    file: &'a str,
+    /// The entire text to be tokenized
     text: &'a str,
-    chars: iter::Peekable<str::Chars<'a>>,
-    line: usize,
-    start: usize,
+    /// A peekable iterate for `text`
+    chars: Peekable<str::Chars<'a>>,
+    /// A peekable double ended queue for the tokens
+    tokens: VecDeque<Token>,
+    /// Current line number
+    pub line: usize,
+    /// Start character index for the current token
+    pub start: usize,
+    /// End character index for the current token
     end: usize,
 }
 
 impl<'a> Lexer<'a> {
-    pub fn new(file: &'a str, contents: &'a str) -> Lexer<'a> {
+    /// Creates a new [`Lexer`] instance with the provided content.
+    ///
+    /// The `Lexer` is responsible for tokenizing the given text, making it easier to
+    /// perform various parsing operations.
+    ///
+    /// # Arguments
+    ///
+    /// * `content`: The text to tokenize.
+    ///
+    /// # Returns
+    ///
+    /// A new instance of `Lexer` initialized with the provided `content`.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use tricc::lexer::Lexer;
+    ///
+    /// let lexer = Lexer::new("let example: int = 4");
+    /// ```
+    pub fn new(content: &'a str) -> Self {
         Lexer {
-            file,
-            text: contents,
-            chars: contents.chars().peekable(),
+            text: content,
+            chars: content.chars().peekable(),
+            tokens: VecDeque::new(),
             line: 1,
             start: 0,
             end: 0,
@@ -120,49 +177,63 @@ impl<'a> Lexer<'a> {
     }
 
     #[inline]
-    fn error(&self) {
-        eprintln!("error lexing \"{}:{}:{}\"", self.file, self.line, self.end);
+    fn new_token(&self, kind: TokenKind) -> Token {
+        Token {
+            kind,
+            val: Rc::from(&self.text[self.start..self.end]),
+        }
     }
 
+    #[inline]
+    fn error(&self, msg: &str) {
+        eprintln!("Lexer: {}, at \"{}:{}\"", msg, self.line, self.end);
+    }
+
+    #[inline]
+    fn peek(&mut self) -> Option<&char> {
+        self.chars.peek()
+    }
+
+    #[inline]
     fn next(&mut self) -> Option<char> {
         self.end += 1;
         self.chars.next()
     }
 
-    fn skip(&mut self, c: char) {
-        if self.next() != Some(c) {
-            self.error();
-            panic!("expected {}", c);
-        }
-    }
+    fn skip_whitespace(&mut self) {
+        let mut ignore_nl: bool = false;
 
-    fn escape_newline(&mut self) {
-        while let Some(c) = self.chars.peek() {
+        while let Some(c) = self.peek() {
             match c {
                 '\r' | '\t' | ' ' => {
                     self.next();
                 }
                 '\n' => {
-                    self.next();
-                    break;
+                    if ignore_nl {
+                        ignore_nl = false;
+                        self.next();
+                    } else {
+                        break;
+                    }
                 }
-                _ => {
-                    self.error();
-                    panic!("expected newline");
-                },
+                '\\' => {
+                    self.next();
+                    ignore_nl = true;
+                }
+                _ => break,
             }
         }
     }
 
-    fn get_numeric(&mut self) -> Token<'a> {
+    fn get_numeric(&mut self) -> Token {
         let mut is_float: bool = false;
-        while let Some(c) = self.chars.peek() {
+        while let Some(c) = self.peek() {
             match c {
                 '0'..='9' => {}
                 '.' => {
                     if is_float {
-                        self.error();
-                        panic!("multiple decimals encountered")
+                        self.error("Multiple decimals encountered");
+                        return self.new_token(TokenKind::Invalid);
                     }
                     is_float = true;
                 }
@@ -171,62 +242,78 @@ impl<'a> Lexer<'a> {
             self.next();
         }
 
-        Token::Literal(
-            if is_float {
-                TokenLiteral::Float
-            } else {
-                TokenLiteral::Int
-            },
-            &self.text[self.start..self.end],
-        )
+        self.new_token(TokenKind::Literal(if is_float {
+            TokenLiteral::Float
+        } else {
+            TokenLiteral::Int
+        }))
     }
 
-    fn get_char(&mut self) -> Token<'a> {
-        self.skip('\'');
+    fn get_char(&mut self) -> Token {
+        // skip '
+        self.next();
 
         if matches!(self.next(), Some('\'') | None) {
-            self.error();
-            panic!("A character literal cannot be empty");
+            self.error("Expected character literal");
+            return self.new_token(TokenKind::Invalid);
         }
 
-        self.skip('\'');
+        // skip '
+        self.next();
 
-        Token::Literal(TokenLiteral::Char, &self.text[self.start + 1..self.end - 1])
+        self.new_token(TokenKind::Literal(TokenLiteral::Char))
     }
 
-    fn get_delimiter(&mut self) -> Token<'a> {
-        use Token::Delimiter;
-        use TokenDelimiter::*;
-
-        match self.next() {
-            Some(c) => match c {
-                '{' => Delimiter(BraceOpen),
-                '}' => Delimiter(BraceClose),
-                '(' => Delimiter(ParenOpen),
-                ')' => Delimiter(ParenClose),
-                _ => {
-                    self.error();
-                    panic!("expected delimiter");
-                }
-            },
-            None => {
-                self.error();
-                panic!("expected delimiter");
+    fn get_alphanumeric(&mut self) -> Token {
+        while let Some(c) = self.peek() {
+            match c {
+                'a'..='z' | 'A'..='Z' | '0'..='9' => {}
+                _ => break,
             }
+            self.next();
         }
+
+        use TokenKeyword::*;
+        use TokenKind::Keyword;
+
+        self.new_token(match &self.text[self.start..self.end] {
+            "fn" => Keyword(Fn),
+            "class" => Keyword(Class),
+            "module" => Keyword(Module),
+            "let" => Keyword(Let),
+            "ret" => Keyword(Ret),
+            "if" => Keyword(If),
+            "else" => Keyword(Else),
+            "elif" => Keyword(Elif),
+            "loop" => Keyword(Loop),
+            "break" => Keyword(Break),
+            "continue" => Keyword(Continue),
+            "int" => Keyword(Int),
+            "float" => Keyword(Float),
+            "char" => Keyword(Char),
+            _ => TokenKind::Identifier,
+        })
     }
 
-    fn get_symbol(&mut self) -> Token<'a> {
-        use Token::Symbol;
+    fn get_symbol(&mut self) -> Token {
+        let c = self.next().unwrap();
+
+        use TokenDelimiter::*;
+        use TokenKind::{
+            Delimiter,
+            Symbol,
+        };
+        use TokenSymbol::*;
 
         // handle +, +=, -, -=, *, *=, /, /=, %, %=, ^, ^=, !, !=
         macro_rules! token_symbol_eq {
             ($a:expr, $b:expr) => {
-                if self.chars.peek() == Some(&'=') {
-                    self.next();
-                    Symbol($b)
-                } else {
-                    Symbol($a)
+                match self.peek() {
+                    Some('=') => {
+                        self.next();
+                        Symbol($b)
+                    }
+                    _ => Symbol($a),
                 }
             };
         }
@@ -234,7 +321,7 @@ impl<'a> Lexer<'a> {
         // handle &, |, ||, &&, &=, |=
         macro_rules! token_symbol_logical {
             ($a:expr, $b:expr, $c:expr, $d:expr) => {
-                match self.chars.peek() {
+                match self.peek() {
                     Some('=') => {
                         self.next();
                         Symbol($c)
@@ -251,7 +338,7 @@ impl<'a> Lexer<'a> {
         // handle <, <=, >, >=, <<, >>, <<=, >>=
         macro_rules! token_symbol_compare {
             ($a:expr, $b:expr, $c:expr, $d:expr, $e:expr) => {
-                match self.chars.peek() {
+                match self.peek() {
                     Some('=') => {
                         self.next();
                         Symbol($d)
@@ -265,99 +352,155 @@ impl<'a> Lexer<'a> {
             };
         }
 
-        use TokenSymbol::*;
-
-        match self.next() {
-            Some(c) => match c {
-                '+' => token_symbol_eq!(Plus, PlusEq),
-                '-' => token_symbol_eq!(Minus, MinusEq),
-                '*' => token_symbol_eq!(Star, StarEq),
-                '/' => token_symbol_eq!(Slash, SlashEq),
-                '%' => token_symbol_eq!(Percent, PercentEq),
-                '^' => token_symbol_eq!(Caret, CaretEq),
-                '!' => token_symbol_eq!(Not, Ne),
-                '=' => token_symbol_eq!(Eq, EqEq),
-                '&' => token_symbol_logical!(And, AndAnd, AndEq, '&'),
-                '|' => token_symbol_logical!(Or, OrOr, OrEq, '|'),
-                '<' => token_symbol_compare!(Lt, Shl, ShlEq, LtEq, '<'),
-                '>' => token_symbol_compare!(Gt, Shr, ShrEq, GtEq, '>'),
-                '~' => Symbol(Tilde),
-                ':' => Symbol(Colon),
-                '.' => Symbol(Dot),
-                '#' => Symbol(Hash),
-                _ => {
-                    self.error();
-                    panic!("expected symbol");
-                }
-            },
-            None => {
-                self.error();
-                panic!("expected symbol");
+        let typ = match c {
+            '{' => Delimiter(BraceOpen),
+            '}' => Delimiter(BraceClose),
+            '(' => Delimiter(ParenOpen),
+            ')' => Delimiter(ParenClose),
+            '+' => token_symbol_eq!(Plus, PlusEq),
+            '-' => token_symbol_eq!(Minus, MinusEq),
+            '*' => token_symbol_eq!(Star, StarEq),
+            '/' => token_symbol_eq!(Slash, SlashEq),
+            '%' => token_symbol_eq!(Percent, PercentEq),
+            '^' => token_symbol_eq!(Caret, CaretEq),
+            '!' => token_symbol_eq!(Not, Ne),
+            '=' => token_symbol_eq!(Eq, EqEq),
+            '&' => token_symbol_logical!(And, AndAnd, AndEq, '&'),
+            '|' => token_symbol_logical!(Or, OrOr, OrEq, '|'),
+            '<' => token_symbol_compare!(Lt, Shl, ShlEq, LtEq, '<'),
+            '>' => token_symbol_compare!(Gt, Shr, ShrEq, GtEq, '>'),
+            '~' => Symbol(Tilde),
+            ':' => Symbol(Colon),
+            '.' => Symbol(Dot),
+            '#' => Symbol(Hash),
+            _ => {
+                self.error("Unknown character encountered");
+                TokenKind::Invalid
             }
-        }
+        };
+        self.new_token(typ)
     }
 
-    fn get_alphanumeric(&mut self) -> Token<'a> {
-        while let Some(c) = self.chars.peek() {
+    fn lex(&mut self) {
+        self.skip_whitespace();
+        self.start = self.end;
+
+        let token = if let Some(c) = self.peek() {
             match c {
-                'a'..='z' | 'A'..='Z' | '0'..='9' => {}
-                _ => break,
-            }
-            self.next();
-        }
-
-        use Token::Keyword;
-        use TokenKeyword::*;
-
-        match &self.text[self.start..self.end] {
-            "let" => Keyword(Let),
-            "fn" => Keyword(Fn),
-            "ret" => Keyword(Ret),
-            "if" => Keyword(If),
-            "else" => Keyword(Else),
-            "elif" => Keyword(Elif),
-            "while" => Keyword(While),
-            "do" => Keyword(Do),
-            "for" => Keyword(For),
-            "int" => Keyword(Int),
-            "float" => Keyword(Float),
-            "char" => Keyword(Char),
-            _ => Token::Identifier(&self.text[self.start..self.end]),
-        }
-    }
-
-    pub fn lex(&mut self) -> Vec<Token<'a>> {
-        let mut tokens: Vec<Token> = Vec::new();
-
-        while let Some(c) = self.chars.peek() {
-            match c {
-                ' ' | '\r' | '\t' => {
-                    self.next();
-                }
-                '\\' => {
-                    self.next();
-                    self.escape_newline();
-                }
                 '\n' => {
-                    tokens.push(Token::Newline);
-                    self.next();
                     self.line += 1;
+                    self.new_token(TokenKind::Newline)
                 }
-                '0'..='9' => tokens.push(self.get_numeric()),
-                '\'' => tokens.push(self.get_char()),
-                '{' | '}' | '(' | ')' => tokens.push(self.get_delimiter()),
-                '+' | '-' | '*' | '/' | '%' | '^' | '~' | '&' | '|' | '!' | '<' | '>' | '='
-                | ':' | '.' | '#' => tokens.push(self.get_symbol()),
-                'a'..='z' | 'A'..='Z' => tokens.push(self.get_alphanumeric()),
-                _ => {
-                    self.error();
-                    panic!("unknown character encountered");
-                }
+                '0'..='9' => self.get_numeric(),
+                'a'..='z' | 'A'..='Z' => self.get_alphanumeric(),
+                '\'' => self.get_char(),
+                _ => self.get_symbol(),
             }
-
-            self.start = self.end;
-        }
-
-        tokens
+        } else {
+            self.new_token(TokenKind::Eof)
+        };
+        self.tokens.push_back(token);
     }
+
+    /// Peeks at the next token and returns a reference to it
+    pub fn peek_token(&mut self) -> &Token {
+        if self.tokens.is_empty() {
+            self.lex();
+        }
+        &self.tokens[0]
+    }
+
+    /// Returns the next token, moving the lexer forward
+    pub fn next_token(&mut self) -> Token {
+        if self.tokens.is_empty() {
+            self.lex();
+        }
+        self.tokens.pop_front().unwrap()
+    }
+}
+
+#[test]
+fn test_peek_next() {
+    let mut lexer = Lexer::new("test01");
+    assert_eq!(lexer.peek(), Some(&'t'));
+    assert_eq!(lexer.next(), Some('t'));
+    assert_eq!(lexer.peek(), Some(&'e'));
+    assert_eq!(lexer.peek(), Some(&'e'));
+    assert_eq!(lexer.next(), Some('e'));
+    assert_eq!(lexer.next(), Some('s'));
+    assert_eq!(lexer.next(), Some('t'));
+    assert_eq!(lexer.next(), Some('0'));
+    assert_eq!(lexer.peek(), Some(&'1'));
+    assert_eq!(lexer.next(), Some('1'));
+    assert_eq!(lexer.peek(), None);
+    assert_eq!(lexer.next(), None);
+    assert_eq!(lexer.peek(), None);
+}
+
+#[test]
+fn test_tokens_1() {
+    let mut lexer = Lexer::new("let test02 = 4 << 1");
+
+    use TokenKind::*;
+
+    assert_eq!(lexer.peek_token().kind, Keyword(TokenKeyword::Let));
+    assert_eq!(lexer.next_token().kind, Keyword(TokenKeyword::Let));
+
+    let mut token = lexer.next_token();
+    assert_eq!(token.kind, Identifier);
+    assert_eq!(*token.val, *"test02");
+
+    assert_eq!(lexer.next_token().kind, Symbol(TokenSymbol::Eq));
+
+    token = lexer.next_token();
+    assert_eq!(token.kind, Literal(TokenLiteral::Int));
+    assert_eq!(*token.val, *"4");
+
+    assert_eq!(lexer.next_token().kind, Symbol(TokenSymbol::Shl));
+
+    assert_eq!(lexer.peek_token().kind, Literal(TokenLiteral::Int));
+    assert_eq!(*lexer.peek_token().val, *"1");
+    token = lexer.next_token();
+    assert_eq!(token.kind, Literal(TokenLiteral::Int));
+    assert_eq!(*token.val, *"1");
+
+    assert_eq!(lexer.peek_token().kind, Eof);
+    assert_eq!(lexer.next_token().kind, Eof);
+    assert_eq!(lexer.peek_token().kind, Eof);
+    assert_eq!(lexer.next_token().kind, Eof);
+}
+
+#[test]
+fn test_tokens_2() {
+    let mut lexer = Lexer::new("let test03: char = 'h'");
+
+    use TokenKind::*;
+
+    assert_eq!(lexer.peek_token().kind, Keyword(TokenKeyword::Let));
+    assert_eq!(lexer.next_token().kind, Keyword(TokenKeyword::Let));
+
+    let mut token = lexer.next_token();
+    assert_eq!(token.kind, Identifier);
+    assert_eq!(*token.val, *"test03");
+
+    assert_eq!(lexer.next_token().kind, Symbol(TokenSymbol::Colon));
+    assert_eq!(lexer.next_token().kind, Keyword(TokenKeyword::Char));
+    assert_eq!(lexer.next_token().kind, Symbol(TokenSymbol::Eq));
+
+    assert_eq!(lexer.peek_token().kind, Literal(TokenLiteral::Char));
+    assert_eq!(*lexer.peek_token().val, *"'h'");
+    token = lexer.next_token();
+    assert_eq!(token.kind, Literal(TokenLiteral::Char));
+    assert_eq!(*token.val, *"'h'");
+
+    assert_eq!(lexer.peek_token().kind, Eof);
+    assert_eq!(lexer.next_token().kind, Eof);
+}
+
+#[test]
+fn test_tokens_3() {
+    let mut lexer = Lexer::new("");
+
+    assert_eq!(lexer.peek_token().kind, TokenKind::Eof);
+    assert_eq!(lexer.next_token().kind, TokenKind::Eof);
 }
