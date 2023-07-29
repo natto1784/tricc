@@ -64,6 +64,7 @@ pub enum TokenSymbol {
     //misc
     Colon,
     Dot,
+    Comma,
     Hash,
 }
 
@@ -372,6 +373,7 @@ impl<'a> Lexer<'a> {
             '~' => Symbol(Tilde),
             ':' => Symbol(Colon),
             '.' => Symbol(Dot),
+            ',' => Symbol(Comma),
             '#' => Symbol(Hash),
             _ => {
                 self.error("Unknown character encountered");
@@ -388,6 +390,7 @@ impl<'a> Lexer<'a> {
         let token = if let Some(c) = self.peek() {
             match c {
                 '\n' => {
+                    self.next();
                     self.line += 1;
                     self.new_token(TokenKind::Newline)
                 }
