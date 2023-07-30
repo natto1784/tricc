@@ -14,11 +14,9 @@ pub enum TokenLiteral {
 }
 
 /// All token symbols
-///
-/// TODO: Maybe add *
 #[derive(Debug, PartialEq)]
 pub enum TokenSymbol {
-    // operators
+    // arithmetic
     Plus,
     Minus,
     Star,
@@ -233,10 +231,15 @@ impl<'a> Lexer<'a> {
                 '0'..='9' => {}
                 '.' => {
                     if is_float {
-                        self.error("Multiple decimals encountered");
+                        self.error("multiple decimals encountered");
                         return self.new_token(TokenKind::Invalid);
                     }
                     is_float = true;
+                }
+                'e' => {
+                    self.next();
+                    is_float = true;
+                    break;
                 }
                 _ => break,
             }
@@ -256,6 +259,11 @@ impl<'a> Lexer<'a> {
 
         if matches!(self.next(), Some('\'') | None) {
             self.error("Expected character literal");
+            return self.new_token(TokenKind::Invalid);
+        }
+
+        if self.peek() != Some(&'\'') {
+            self.error("Expected '");
             return self.new_token(TokenKind::Invalid);
         }
 
@@ -441,7 +449,7 @@ fn test_peek_next() {
 }
 
 #[test]
-fn test_tokens_1() {
+fn test_tokens() {
     let mut lexer = Lexer::new("let test02 = 4 << 1");
 
     use TokenKind::*;
@@ -501,9 +509,51 @@ fn test_tokens_2() {
 }
 
 #[test]
-fn test_tokens_3() {
+fn test_tokens_eof() {
     let mut lexer = Lexer::new("");
 
     assert_eq!(lexer.peek_token().kind, TokenKind::Eof);
+    assert_eq!(lexer.next_token().kind, TokenKind::Eof);
+}
+
+#[test]
+fn test_tokens_numeric() {
+    let mut lexer = Lexer::new("3342");
+
+    let token = lexer.next_token();
+    assert_eq!(token.kind, TokenKind::Literal(TokenLiteral::Int));
+    assert_eq!(*token.val, *"3342");
+
+    assert_eq!(lexer.next_token().kind, TokenKind::Eof);
+}
+
+#[test]
+fn test_tokens_numeric_2() {
+    let mut lexer = Lexer::new("334.2e");
+
+    let token = lexer.next_token();
+    assert_eq!(token.kind, TokenKind::Literal(TokenLiteral::Float));
+    assert_eq!(*token.val, *"334.2e");
+
+    assert_eq!(lexer.next_token().kind, TokenKind::Eof);
+}
+
+#[test]
+fn test_tokens_numeric_3() {
+    let mut lexer = Lexer::new("334.2e-5");
+
+    let mut token = lexer.next_token();
+    assert_eq!(token.kind, TokenKind::Literal(TokenLiteral::Float));
+    assert_eq!(*token.val, *"334.2e");
+
+    assert_eq!(
+        lexer.next_token().kind,
+        TokenKind::Symbol(TokenSymbol::Minus)
+    );
+
+    token = lexer.next_token();
+    assert_eq!(token.kind, TokenKind::Literal(TokenLiteral::Int));
+    assert_eq!(*token.val, *"5");
+
     assert_eq!(lexer.next_token().kind, TokenKind::Eof);
 }
