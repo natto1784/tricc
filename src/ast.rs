@@ -1,72 +1,93 @@
-/// A very naive AST definition using recursive enums
-/// See the parser for implementation
+//! A very naive AST definition using recursive enums
+//!
+//! See the parser for implementation
+
 use std::rc::Rc;
 
 pub type Parent = Vec<Entity>;
 
 /// Entities are functions, classes, and modules
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub enum Entity {
     Fn(Fn),
     Class(Class),
     Module(Module),
 }
 
-#[derive(Debug)]
+/// A module just provides an additional scope
+///
+/// TODO: Add exporting and importing modules
+#[derive(Debug, PartialEq)]
 pub struct Module {
+    /// Name of module
     pub name: Rc<str>,
+    /// Everything inside the module
     pub children: Vec<ModuleChildren>,
 }
 
 /// Modules contain functions, classes and statements
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub enum ModuleChildren {
     Fn(Fn),
     Class(Class),
     Module(Module),
-    Const(Let),
+    Static(Let),
 }
 
-#[derive(Debug)]
+/// Classes encapsulate functions and definitions.
+#[derive(Debug, PartialEq)]
 pub struct Class {
+    /// Name of class
     pub name: Rc<str>,
+    /// Everything inside the class
     pub children: Vec<ClassChildren>,
 }
 
-/// Classes contain functions and statements.
-///
-/// TODO: Maybe change statements to something else
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub enum ClassChildren {
     Fn(Fn),
-    Statement(Statement),
+    Let(Let),
+    Static(Let),
 }
 
-#[derive(Debug)]
+/// A Function
+#[derive(Debug, PartialEq)]
 pub struct Fn {
+    /// Name of the function
     pub name: Rc<str>,
+    /// Optional return type
     pub return_ty: Option<Ty>,
+    /// Parameters
     pub params: Vec<(Rc<str>, Ty)>,
+    /// The function block
     pub children: Vec<Statement>,
 }
 
-#[derive(Debug)]
+/// Statements encapsulate expressions and definitions
+#[derive(Debug, PartialEq)]
 pub enum Statement {
-    Const(Let),
+    Static(Let),
     Let(Let),
     Expr(Expr),
 }
 
-#[derive(Debug)]
+/// A variable definition
+#[derive(Debug, PartialEq)]
 pub struct Let {
+    /// Name of variabe
     pub name: Rc<str>,
+    /// Type of variable
     pub ty: Ty,
+    /// Value of variable
     pub expr: Option<Expr>,
 }
 
 type Op = crate::lexer::TokenSymbol;
 
-#[derive(Debug)]
+/// Lowest form of expression
+///
+/// TODO: refine
+#[derive(Debug, PartialEq)]
 pub enum Expr {
     Int(i32),
     Float(f32),
@@ -74,7 +95,7 @@ pub enum Expr {
     Op(Op, Box<Expr>, Option<Box<Expr>>),
     If(Box<Expr>, Box<Expr>, Option<Box<Expr>>),
     Block(Vec<Statement>),
-    Loop,
+    Loop(Vec<Statement>),
     Break,
     Continue,
 }
@@ -82,7 +103,7 @@ pub enum Expr {
 /// Primitives
 ///
 /// TODO: add arrays and pointers maybe
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub enum Ty {
     Int,
     Float,

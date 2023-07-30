@@ -75,6 +75,7 @@ pub enum TokenKeyword {
     Module,
 
     // statements
+    Static,
     Let,
     Ret,
 
@@ -137,8 +138,9 @@ pub struct Lexer<'a> {
     tokens: VecDeque<Token>,
     /// Current line number
     pub line: usize,
+    pub col: usize,
     /// Start character index for the current token
-    pub start: usize,
+    start: usize,
     /// End character index for the current token
     end: usize,
 }
@@ -170,6 +172,7 @@ impl<'a> Lexer<'a> {
             chars: content.chars().peekable(),
             tokens: VecDeque::new(),
             line: 1,
+            col: 1,
             start: 0,
             end: 0,
         }
@@ -196,6 +199,7 @@ impl<'a> Lexer<'a> {
     #[inline]
     fn next(&mut self) -> Option<char> {
         self.end += 1;
+        self.col += 1;
         self.chars.next()
     }
 
@@ -236,7 +240,7 @@ impl<'a> Lexer<'a> {
                     }
                     is_float = true;
                 }
-                'e' => {
+                'e' | 'E' => {
                     self.next();
                     is_float = true;
                     break;
@@ -289,6 +293,7 @@ impl<'a> Lexer<'a> {
             "fn" => Keyword(Fn),
             "class" => Keyword(Class),
             "module" => Keyword(Module),
+            "static" => Keyword(Static),
             "let" => Keyword(Let),
             "ret" => Keyword(Ret),
             "if" => Keyword(If),
@@ -400,6 +405,7 @@ impl<'a> Lexer<'a> {
                 '\n' => {
                     self.next();
                     self.line += 1;
+                    self.col = 0;
                     self.new_token(TokenKind::Newline)
                 }
                 '0'..='9' => self.get_numeric(),

@@ -4,10 +4,7 @@ use std::{
 };
 
 use tricc::args::Args;
-use tricc::lexer::{
-    Lexer,
-    TokenKind,
-};
+use tricc::parser::Parser;
 
 fn main() {
     panic::set_hook(Box::new(|panic_info| {
@@ -30,11 +27,8 @@ fn main() {
     args.handle();
 
     let file = args.get_file();
-    let content = fs::read_to_string(&file).expect("Couldn't read the file");
+    let content = fs::read_to_string(file).expect("Couldn't read the file");
+    let mut parser = Parser::new(&content);
 
-    let mut lexer = Lexer::new(content.as_str());
-
-    while lexer.peek_token().kind != TokenKind::Eof {
-        println!("{:?}", lexer.next_token());
-    }
+    println!("{:?}", parser.parse());
 }
