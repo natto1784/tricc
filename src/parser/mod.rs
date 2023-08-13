@@ -5,6 +5,7 @@
 mod entity;
 mod expr;
 mod literal;
+mod statement;
 
 use crate::ast::{
     Parent,
@@ -60,6 +61,7 @@ impl<'a> Parser<'a> {
         return self.lexer.peek_token();
     }
 
+    /// newline ::= "\n"
     fn trim_newlines(&mut self) {
         while self.peek_token().kind == TokenKind::Newline {
             self.next_token();
@@ -75,6 +77,7 @@ impl<'a> Parser<'a> {
         false
     }
 
+    /// ty ::= "int" | "float" | "char"
     fn parse_ty(&mut self) -> Option<Ty> {
         let ty: Ty;
 
@@ -96,6 +99,7 @@ impl<'a> Parser<'a> {
         Some(ty)
     }
 
+    /// ident ::= ( letter | "_" ) { letter | digit | "_" }
     fn parse_ident(&mut self) -> Option<Rc<str>> {
         if self.peek_token().kind != TokenKind::Identifier {
             self.error_expected_peek("identifier");
@@ -105,7 +109,8 @@ impl<'a> Parser<'a> {
         Some(Rc::clone(&self.next_token().val))
     }
 
-    fn parse_ident_with_type(&mut self) -> Option<(Rc<str>, Ty)> {
+    /// identWithTy ::= letter ":" ty
+    fn parse_ident_with_ty(&mut self) -> Option<(Rc<str>, Ty)> {
         let ident = self.parse_ident()?;
 
         if !self.skip_token(TokenKind::Symbol(TokenSymbol::Colon)) {
@@ -118,6 +123,7 @@ impl<'a> Parser<'a> {
 
     /// Returns an [`Entity`] vector after parsing
     ///
+    /// parent ::= { entity }
     /// [`Entity`]: crate::ast::Entity
     pub fn parse(&mut self) -> Option<Parent> {
         let mut parent = vec![];

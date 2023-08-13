@@ -1,10 +1,12 @@
 use super::Parser;
 use crate::lexer::{
     TokenKind,
+    TokenLiteral,
     TokenSymbol,
 };
 
 impl<'a> Parser<'a> {
+    /// int ::= digit { digit }
     pub(super) fn parse_int(&mut self) -> Option<i32> {
         let val = self.next_token().val;
         let mut integer: i32 = 0;
@@ -36,10 +38,13 @@ impl<'a> Parser<'a> {
                 }
             }
         }
+
         Some(integer)
     }
 
+    // didnt use parse() because i wanted to do this myself for some reason
     /// f32 can be NaN and inf as well
+    /// float ::= int [ "." { digit } ] [ "e" { digit } ]
     pub(super) fn parse_float(&mut self) -> Option<f32> {
         let token = self.next_token();
         let mut chars = token.val.chars();
@@ -68,6 +73,10 @@ impl<'a> Parser<'a> {
                         _ => s = 1,
                     }
 
+                    if self.peek_token().kind != TokenKind::Literal(TokenLiteral::Int) {
+                        break;
+                    }
+
                     exp = self.parse_int()? * s;
                     break;
                 }
@@ -93,6 +102,7 @@ impl<'a> Parser<'a> {
         Some(float)
     }
 
+    /// char ::= "'" letter "'"
     pub(super) fn parse_char(&mut self) -> Option<char> {
         // the lexer ensures that the 0th and 2nd characters are both '
         self.next_token().val.chars().nth(1)

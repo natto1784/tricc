@@ -9,6 +9,7 @@ use crate::lexer::{
 use std::rc::Rc;
 
 impl<'a> Parser<'a> {
+    /// entity ::= module | class | fn
     pub(super) fn parse_entity(&mut self) -> Option<Entity> {
         use TokenKeyword::*;
         let token = self.peek_token();
@@ -17,7 +18,7 @@ impl<'a> Parser<'a> {
             match keyword {
                 Module => Some(Entity::Module(self.parse_module()?)),
                 Class => Some(Entity::Class(self.parse_class()?)),
-                Fn => Some(Entity::Fn(self.parse_function()?)),
+                Fn => Some(Entity::Fn(self.parse_fn()?)),
                 _ => {
                     self.error_expected_peek("entity");
                     None
@@ -29,6 +30,7 @@ impl<'a> Parser<'a> {
         }
     }
 
+    /// module ::= "module" ident "{" { module | fn | static | class } "}"
     fn parse_module(&mut self) -> Option<Module> {
         self.next_token();
 
@@ -46,7 +48,7 @@ impl<'a> Parser<'a> {
             if let TokenKind::Keyword(keyword) = &self.peek_token().kind {
                 children.push(match keyword {
                     Module => ModuleChildren::Module(self.parse_module()?),
-                    Fn => ModuleChildren::Fn(self.parse_function()?),
+                    Fn => ModuleChildren::Fn(self.parse_fn()?),
                     Static => ModuleChildren::Static(self.parse_static()?),
                     Class => ModuleChildren::Class(self.parse_class()?),
                     _ => {
@@ -65,6 +67,7 @@ impl<'a> Parser<'a> {
         Some(Module { name, children })
     }
 
+    /// class ::= "class" ident "{" { fn | static | let } "}"
     fn parse_class(&mut self) -> Option<Class> {
         self.next_token();
 
@@ -81,7 +84,7 @@ impl<'a> Parser<'a> {
             self.trim_newlines();
             if let TokenKind::Keyword(keyword) = &self.peek_token().kind {
                 children.push(match keyword {
-                    Fn => ClassChildren::Fn(self.parse_function()?),
+                    Fn => ClassChildren::Fn(self.parse_fn()?),
                     Static => ClassChildren::Static(self.parse_static()?),
                     Let => ClassChildren::Let(self.parse_let()?),
                     _ => {
@@ -100,7 +103,9 @@ impl<'a> Parser<'a> {
         Some(Class { name, children })
     }
 
-    fn parse_function(&mut self) -> Option<Fn> {
+    /// fn ::= "fn" ident "(" [ identWithTy { "," identWithTy } ] ")" [ ":" ty ]
+    ///        "{" { statement } "}"
+    fn parse_fn(&mut self) -> Option<Fn> {
         self.next_token();
 
         let name = self.parse_ident()?;
@@ -115,7 +120,7 @@ impl<'a> Parser<'a> {
 
         loop {
             if self.peek_token().kind == TokenKind::Identifier {
-                params.push(self.parse_ident_with_type()?);
+                params.push(self.parse_ident_with_ty()?);
             }
 
             if !self.skip_token(TokenKind::Symbol(TokenSymbol::Comma)) {
@@ -164,16 +169,7 @@ fn test_parse_entity() {
                }
              }
 
-
-             fn fn02(): int {
-
-
-
-
-
-
-
-            }
+             fn fn02 (): int { }
           }"#,
     );
     assert_eq!(
@@ -190,7 +186,7 @@ fn test_parse_entity() {
                         children: vec![Statement::Static(Let {
                             name: "let01".into(),
                             ty: Ty::Int,
-                            expr: Some(Expr::Int(4))
+                            expr: Some(Expr::Literal(Literal::Int(4)))
                         })]
                     })]
                 }),
