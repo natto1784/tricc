@@ -82,24 +82,6 @@ pub struct Let {
     pub expr: Option<Expr>,
 }
 
-type Op = crate::lexer::TokenSymbol;
-
-/// Lowest form of expression
-///
-/// TODO: refine
-#[derive(Debug, PartialEq)]
-pub enum Expr {
-    Int(i32),
-    Float(f32),
-    Char(char),
-    Op(Op, Box<Expr>, Option<Box<Expr>>),
-    If(Box<Expr>, Box<Expr>, Option<Box<Expr>>),
-    Block(Vec<Statement>),
-    Loop(Vec<Statement>),
-    Break,
-    Continue,
-}
-
 /// Primitives
 ///
 /// TODO: add arrays and pointers maybe
@@ -108,4 +90,42 @@ pub enum Ty {
     Int,
     Float,
     Char,
+}
+
+#[derive(Debug, PartialEq)]
+pub struct If {
+    pub cond: Box<Expr>,
+    pub then: Vec<Statement>,
+    pub or: Option<Box<ElseType>>,
+}
+
+#[derive(Debug, PartialEq)]
+pub enum ElseType {
+    If(If),
+    Else(Vec<Statement>),
+}
+
+type Op = crate::lexer::TokenSymbol;
+
+#[derive(Debug, PartialEq)]
+pub enum Literal {
+    Int(i32),
+    Float(f32),
+    Char(char),
+}
+
+/// Lowest form of expression
+///
+/// TODO: refine
+#[derive(Debug, PartialEq)]
+pub enum Expr {
+    Literal(Literal),
+    Identifier(Rc<str>),
+    Op(Op, Box<Expr>, Option<Box<Expr>>),
+    If(If),
+    Block(Vec<Statement>),
+    Loop(Vec<Statement>),
+    Break,
+    Continue,
+    Return(Option<Box<Expr>>),
 }

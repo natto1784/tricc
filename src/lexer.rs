@@ -14,7 +14,7 @@ pub enum TokenLiteral {
 }
 
 /// All token symbols
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone, Copy)]
 pub enum TokenSymbol {
     // arithmetic
     Plus,
@@ -38,9 +38,7 @@ pub enum TokenSymbol {
 
     // relational
     Gt,
-    Ge,
     Lt,
-    Le,
     GtEq,
     LtEq,
     EqEq,
@@ -88,6 +86,7 @@ pub enum TokenKeyword {
     Loop,
     Break,
     Continue,
+    Return,
 
     // primitives
     Int,
@@ -280,7 +279,7 @@ impl<'a> Lexer<'a> {
     fn get_alphanumeric(&mut self) -> Token {
         while let Some(c) = self.peek() {
             match c {
-                'a'..='z' | 'A'..='Z' | '0'..='9' => {}
+                'a'..='z' | 'A'..='Z' | '0'..='9' | '_' => {}
                 _ => break,
             }
             self.next();
@@ -302,6 +301,7 @@ impl<'a> Lexer<'a> {
             "loop" => Keyword(Loop),
             "break" => Keyword(Break),
             "continue" => Keyword(Continue),
+            "return" => Keyword(Return),
             "int" => Keyword(Int),
             "float" => Keyword(Float),
             "char" => Keyword(Char),
@@ -409,7 +409,7 @@ impl<'a> Lexer<'a> {
                     self.new_token(TokenKind::Newline)
                 }
                 '0'..='9' => self.get_numeric(),
-                'a'..='z' | 'A'..='Z' => self.get_alphanumeric(),
+                'a'..='z' | 'A'..='Z' | '_' => self.get_alphanumeric(),
                 '\'' => self.get_char(),
                 _ => self.get_symbol(),
             }
