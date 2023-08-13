@@ -57,6 +57,10 @@ impl<'a> Parser<'a> {
                         return None;
                     }
                 });
+                if !self.check_newline_or_tok(TokenKind::Delimiter(TokenDelimiter::BraceClose)) {
+                    self.error_expected_peek("newline or }");
+                    return None;
+                }
             } else if !self.skip_token(TokenKind::Delimiter(TokenDelimiter::BraceClose)) {
                 self.error_expected_peek("}");
                 return None;
@@ -93,6 +97,10 @@ impl<'a> Parser<'a> {
                         return None;
                     }
                 });
+                if !self.check_newline_or_tok(TokenKind::Delimiter(TokenDelimiter::BraceClose)) {
+                    self.error_expected_peek("newline or }");
+                    return None;
+                }
             } else if !self.skip_token(TokenKind::Delimiter(TokenDelimiter::BraceClose)) {
                 self.error_expected_peek("}");
                 return None;
@@ -148,7 +156,11 @@ impl<'a> Parser<'a> {
             if self.skip_token(TokenKind::Delimiter(TokenDelimiter::BraceClose)) {
                 break;
             }
-            children.push(self.parse_statement()?)
+            children.push(self.parse_statement()?);
+            if !self.check_newline_or_tok(TokenKind::Delimiter(TokenDelimiter::BraceClose)) {
+                self.error_expected_peek("newline or }");
+                return None;
+            }
         }
 
         Some(Fn {

@@ -57,6 +57,10 @@ impl<'a> Parser<'a> {
                 break;
             }
             statements.push(self.parse_statement()?);
+            if !self.check_newline_or_tok(TokenKind::Delimiter(TokenDelimiter::BraceClose)) {
+                self.error_expected_peek("newline or }");
+                return None;
+            }
         }
 
         Some(statements)
@@ -325,32 +329,107 @@ impl<'a> Parser<'a> {
     ///
     /// <https://en.wikipedia.org/wiki/Recursive_descent_parser>
     /// expr ::= exprControl
-    fn parse_expr(&mut self) -> Option<Expr> {
+    pub(super) fn parse_expr(&mut self) -> Option<Expr> {
         self.parse_expr_control()
-    }
-
-    pub(super) fn parse_expr_ln(&mut self) -> Option<Expr> {
-        let expr = self.parse_expr();
-        if !self.skip_token(TokenKind::Newline) {
-            self.error_expected_peek("newline");
-            return None;
-        }
-        expr
     }
 }
 
 #[test]
-fn test_parse_expr_literals() {
+fn test_parse_expr() {
     use Literal::*;
+    use TokenSymbol::*;
 
-    let mut parser = Parser::new("4524 3123.15e4 9e2 9083482.429455 'c' 3331.13.3");
-    assert_eq!(parser.parse_expr(), Some(Expr::Literal(Int(4524))));
-    assert_eq!(parser.parse_expr(), Some(Expr::Literal(Float(3123.15e4))));
-    assert_eq!(parser.parse_expr(), Some(Expr::Literal(Float(9e2))));
+    macro_rules! b {
+        ($expr:expr) => {
+            Box::new($expr)
+        };
+    }
+
+    let mut parser = Parser::new(
+        r#"if if 1 { 1 } else { 0 } + 9 {
+             a = 4
+           } else if 1 {
+             a = 5
+           } else {
+           }
+          amul ^= (4 + 93 * (1 << 3) / 1.44) ^ bhatura
+          stove = { 44 } + amul"#,
+    );
+
     assert_eq!(
         parser.parse_expr(),
-        Some(Expr::Literal(Float(9083482.429455)))
+        Some(Expr::If(If {
+            cond: b!(Expr::Op(
+                Plus,
+                b!(Expr::If(If {
+                    cond: b!(Expr::Literal(Int(1))),
+                    then: vec![Statement::Expr(Expr::Literal(Int(1)))],
+                    or: Some(b!(ElseType::Else(vec![Statement::Expr(Expr::Literal(
+                        Int(0)
+                    ))])))
+                })),
+                Some(b!(Expr::Literal(Int(9))))
+            )),
+            then: vec![Statement::Expr(Expr::Op(
+                Eq,
+                b!(Expr::Identifier("a".into())),
+                Some(b!(Expr::Literal(Int(4))))
+            ))],
+            or: Some(b!(ElseType::If(If {
+                cond: b!(Expr::Literal(Int(1))),
+                then: vec![Statement::Expr(Expr::Op(
+                    Eq,
+                    b!(Expr::Identifier("a".into())),
+                    Some(b!(Expr::Literal(Int(5))))
+                ))],
+                or: Some(b!(ElseType::Else(vec![])))
+            })))
+        }))
     );
-    assert_eq!(parser.parse_expr(), Some(Expr::Literal(Char('c'))));
-    assert_eq!(parser.parse_expr(), None);
+
+    assert_eq!(parser.skip_token(TokenKind::Newline), true);
+
+    assert_eq!(
+        parser.parse_expr(),
+        Some(Expr::Op(
+            CaretEq,
+            b!(Expr::Identifier("amul".into())),
+            Some(b!(Expr::Op(
+                Caret,
+                b!(Expr::Op(
+                    Plus,
+                    b!(Expr::Literal(Int(4))),
+                    Some(b!(Expr::Op(
+                        Star,
+                        b!(Expr::Literal(Int(93))),
+                        Some(b!(Expr::Op(
+                            Slash,
+                            b!(Expr::Op(
+                                Shl,
+                                b!(Expr::Literal(Int(1))),
+                                Some(b!(Expr::Literal(Int(3))))
+                            )),
+                            Some(b!(Expr::Literal(Float(1.44))))
+                        )))
+                    )))
+                )),
+                Some(b!(Expr::Identifier("bhatura".into())))
+            )))
+        ))
+    );
+
+    assert_eq!(parser.skip_token(TokenKind::Newline), true);
+
+    assert_eq!(
+        parser.parse_expr(),
+        Some(Expr::Op(
+            Eq,
+            b!(Expr::Identifier("stove".into())),
+            Some(b!(Expr::Op(
+                Plus,
+                b!(Expr::Block(vec![Statement::Expr(Expr::Literal(Int(44)))])),
+                Some(b!(Expr::Identifier("amul".into())))
+            )))
+        ))
+    );
 }

@@ -6,7 +6,7 @@ use std::str;
 /// All token literals
 ///
 /// TODO: Add string
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone, Copy)]
 pub enum TokenLiteral {
     Int,
     Float,
@@ -65,7 +65,7 @@ pub enum TokenSymbol {
 }
 
 /// All token keywod
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone, Copy)]
 pub enum TokenKeyword {
     // parents
     Fn,
@@ -97,7 +97,7 @@ pub enum TokenKeyword {
 /// All token delimiters
 ///
 /// TODO: Maybe add \[ and \]
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone, Copy)]
 pub enum TokenDelimiter {
     BraceOpen,
     BraceClose,
@@ -106,7 +106,7 @@ pub enum TokenDelimiter {
 }
 
 /// All tokens
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone, Copy)]
 pub enum TokenKind {
     Newline,
     Eof,

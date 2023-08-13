@@ -108,3 +108,14 @@ impl<'a> Parser<'a> {
         self.next_token().val.chars().nth(1)
     }
 }
+
+#[test]
+fn test_parse_literals() {
+    let mut parser = Parser::new("4524 3123.15e4 9e2 9083482.429455 'c' 3331.13.1");
+    assert_eq!(parser.parse_int(), Some(4524));
+    assert_eq!(parser.parse_float(), Some(3123.15e4));
+    assert_eq!(parser.parse_float(), Some(9e2));
+    assert_eq!(parser.parse_float(), Some(9083482.429455));
+    assert_eq!(parser.parse_char(), Some('c'));
+    assert_eq!(parser.next_token().kind, TokenKind::Invalid);
+}

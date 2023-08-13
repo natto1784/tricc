@@ -12,7 +12,7 @@ pub enum Entity {
     Fn(Fn),
     Class(Class),
     Module(Module),
-    Static(Let)
+    Static(Let),
 }
 
 /// A module just provides an additional scope
@@ -106,7 +106,7 @@ pub enum ElseType {
     Else(Vec<Statement>),
 }
 
-type Op = crate::lexer::TokenSymbol;
+pub(crate) type Op = crate::lexer::TokenSymbol;
 
 #[derive(Debug, PartialEq)]
 pub enum Literal {

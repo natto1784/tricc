@@ -10,11 +10,12 @@ impl<'a> Parser<'a> {
     /// statement ::= static | let | expr
     pub(super) fn parse_statement(&mut self) -> Option<Statement> {
         use TokenKeyword::*;
+        println!("STMT");
 
         Some(match self.peek_token().kind {
             TokenKind::Keyword(Static) => Statement::Static(self.parse_static()?),
             TokenKind::Keyword(Let) => Statement::Let(self.parse_let()?),
-            _ => Statement::Expr(self.parse_expr_ln()?),
+            _ => Statement::Expr(self.parse_expr()?),
         })
     }
 
@@ -37,8 +38,8 @@ impl<'a> Parser<'a> {
         let (name, ty) = self.parse_ident_with_ty()?;
 
         let expr = if self.skip_token(TokenKind::Symbol(TokenSymbol::Eq)) {
-            self.parse_expr_ln()
-        } else if self.skip_token(TokenKind::Newline) {
+            self.parse_expr()
+        } else if self.peek_token().kind == TokenKind::Newline {
             None
         } else {
             self.error_expected_peek("= or newline");
@@ -67,6 +68,7 @@ fn test_parse_let() {
             expr: Some(Expr::Literal(Int(4)))
         })
     );
+    assert_eq!(parser.skip_token(TokenKind::Newline), true);
     assert_eq!(
         parser.parse_let(),
         Some(Let {
@@ -75,6 +77,7 @@ fn test_parse_let() {
             expr: Some(Expr::Literal(Char('6')))
         })
     );
+    assert_eq!(parser.skip_token(TokenKind::Newline), true);
     assert_eq!(
         parser.parse_static(),
         Some(Let {
@@ -83,5 +86,6 @@ fn test_parse_let() {
             expr: None
         })
     );
+    assert_eq!(parser.skip_token(TokenKind::Newline), true);
     assert_eq!(parser.parse_let(), None);
 }

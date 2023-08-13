@@ -53,7 +53,9 @@ impl<'a> Parser<'a> {
 
     #[inline]
     fn next_token(&mut self) -> Token {
-        self.lexer.next_token()
+        let t = self.lexer.next_token();
+        println!("{:?}", t);
+        t
     }
 
     #[inline]
@@ -61,7 +63,7 @@ impl<'a> Parser<'a> {
         return self.lexer.peek_token();
     }
 
-    /// newline ::= "\n"
+    /// newline ::= "}\n"
     fn trim_newlines(&mut self) {
         while self.peek_token().kind == TokenKind::Newline {
             self.next_token();
@@ -75,6 +77,14 @@ impl<'a> Parser<'a> {
         }
 
         false
+    }
+
+    fn check_newline_or_tok(&mut self, token: TokenKind) -> bool {
+        match self.peek_token().kind {
+            TokenKind::Newline => true,
+            d if d == token => true,
+            _ => false,
+        }
     }
 
     /// ty ::= "int" | "float" | "char"
@@ -134,6 +144,10 @@ impl<'a> Parser<'a> {
                 TokenKind::Eof => break,
                 _ => {
                     parent.push(self.parse_entity()?);
+                    if !self.check_newline_or_tok(TokenKind::Eof) {
+                        self.error_expected_peek("newline or end of file");
+                        return None;
+                    }
                 }
             }
         }
