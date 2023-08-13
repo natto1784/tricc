@@ -9,21 +9,22 @@ use crate::lexer::{
 use std::rc::Rc;
 
 impl<'a> Parser<'a> {
-    /// entity ::= module | class | fn
+    /// entity ::= module | class | fn | static
     pub(super) fn parse_entity(&mut self) -> Option<Entity> {
         use TokenKeyword::*;
         let token = self.peek_token();
 
         if let TokenKind::Keyword(keyword) = &token.kind {
-            match keyword {
-                Module => Some(Entity::Module(self.parse_module()?)),
-                Class => Some(Entity::Class(self.parse_class()?)),
-                Fn => Some(Entity::Fn(self.parse_fn()?)),
+            Some(match keyword {
+                Module => Entity::Module(self.parse_module()?),
+                Class => Entity::Class(self.parse_class()?),
+                Fn => Entity::Fn(self.parse_fn()?),
+                Static => Entity::Static(self.parse_static()?),
                 _ => {
                     self.error_expected_peek("entity");
-                    None
+                    return None;
                 }
-            }
+            })
         } else {
             self.error_expected_peek("entity");
             None

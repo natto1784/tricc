@@ -12,6 +12,7 @@ pub enum Entity {
     Fn(Fn),
     Class(Class),
     Module(Module),
+    Static(Let)
 }
 
 /// A module just provides an additional scope

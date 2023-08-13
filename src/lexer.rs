@@ -136,8 +136,8 @@ pub struct Lexer<'a> {
     /// A peekable double ended queue for the tokens
     tokens: VecDeque<Token>,
     /// Current line number
-    pub line: usize,
-    pub col: usize,
+    pub(crate) line: usize,
+    pub(crate) col: usize,
     /// Start character index for the current token
     start: usize,
     /// End character index for the current token
