@@ -27,8 +27,14 @@ fn main() {
     args.handle();
 
     let file = args.get_file();
-    let content = fs::read_to_string(file).expect("Couldn't read the file");
+    let content = fs::read_to_string(&file).expect("Couldn't read the file");
     let mut parser = Parser::new(&content);
-
-    println!("{:?}", parser.parse());
+    let Some(parent) = parser.parse() else {
+        eprintln!(
+            "Failed to parse {} - See the errors above",
+            file.to_string_lossy()
+        );
+        std::process::exit(1);
+    };
+    println!("Parsed AST:\n{:#?}", parent);
 }

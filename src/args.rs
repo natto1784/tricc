@@ -1,4 +1,5 @@
 use std::env;
+use std::path::PathBuf;
 use std::process::exit;
 
 const VERSION: &str = env!("CARGO_PKG_VERSION");
@@ -8,7 +9,7 @@ const CRATE: &str = env!("CARGO_CRATE_NAME");
 #[derive(Default)]
 pub struct Args {
     version: bool,
-    file: Option<String>,
+    file: Option<PathBuf>,
 }
 
 impl Args {
@@ -34,7 +35,7 @@ impl Args {
                     if self.file.is_some() {
                         panic!("please specify only a single source file!");
                     }
-                    self.file = Some(file.to_owned());
+                    self.file = Some(PathBuf::from(file));
                 }
             }
         }
@@ -55,7 +56,7 @@ impl Args {
     /// Fetches the file from the arguments.
     /// Panics if there is no file in the arguments
     #[inline]
-    pub fn get_file(self) -> String {
+    pub fn get_file(self) -> PathBuf {
         self.file.expect("no file supplied!")
     }
 }
