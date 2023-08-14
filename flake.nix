@@ -9,25 +9,28 @@
       inputs.nixpkgs.follows = "nixpkgs";
     };
 
-    rust-overlay = {
-      url = github:oxalica/rust-overlay;
+    fenix = {
+      url = github:nix-community/fenix;
       inputs.nixpkgs.follows = "nixpkgs";
     };
 
     flake-utils.url = github:numtide/flake-utils;
   };
 
-  outputs = inputs@{ self, nixpkgs, crane, rust-overlay, flake-utils }:
+  outputs = inputs@{ self, nixpkgs, crane, fenix, flake-utils }:
     flake-utils.lib.eachDefaultSystem (system:
       let
         pkgs = import nixpkgs {
           inherit system;
-          overlays = [ rust-overlay.overlays.default ];
+          overlays = [ fenix.overlays.default ];
         };
 
         inherit (pkgs) lib;
 
-        toolchain = pkgs.rust-bin.fromRustupToolchainFile ./rust-toolchain.toml;
+        toolchain = pkgs.fenix.fromToolchainFile {
+          file = ./rust-toolchain.toml;
+          sha256 = "sha256-n8LtGbpj/yCUGo0NFJ7FNv9fSdT9oKEUl+EPLg06JdQ=";
+        };
 
         craneLib = (crane.mkLib pkgs).overrideToolchain toolchain;
         src = craneLib.cleanCargoSource (craneLib.path ./.);
